@@ -1,8 +1,9 @@
 mod config;
 
+use anyhow::{anyhow, Context};
 use axum::{routing::get, Router, Server};
 use std::{fs::File, net::SocketAddr};
-use tracing::info;
+use tracing::{error, info};
 use tracing_subscriber::{prelude::*, Registry};
 
 #[tokio::main]
@@ -22,10 +23,17 @@ async fn main() {
     let app = Router::new().route("/", get(|| async { "Hello, World!" }));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    info!("start listening on {addr}");
 
-    Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap()
+    if let Err(error) = start(&addr, app).await {
+        error!("server error: {:#}", error);
+    }
+}
+
+async fn start(addr: &SocketAddr, app: Router) -> Result<(), anyhow::Error> {
+    let server = Server::try_bind(&addr)
+        .context("unable to bind address")?
+        .serve(app.into_make_service());
+
+    info!("start listening on {addr}");
+    server.await.map_err(|e| anyhow!(e))
 }
