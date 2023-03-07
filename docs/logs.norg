@@ -1,0 +1,41 @@
+
+* Media Whaler logs
+
+Configured using the [tracing] crate.
+By default, only errors will be displayed.
+
+** Supported log level
+
+- `trace`
+- `debug`
+- `info`
+- `warn`
+- `error` (default)
+
+** Using env variable
+
+You can use the environment variable `MEDIAWHALER_LOG` to configure logs.
+Usage:
+@code bash
+MEDIAWHALER_LOG=debug mediawhaler
+# Or only logs from the mediawhaler app
+MEDIAWHALER_LOG=mediawhaler=debug mediawhaler
+ @end
+
+** Advanced logging
+
+It is possible to use fine grained logging using [tracing] using the [`EnvFilter` syntax].
+
+MediaWhaler root target is `mediawhaler`.
+
+*** Example
+
+@code bash
+# Log traces only for mediawhaler, error for other crates
+MEDIAWHALER_LOG=mediawhaler=trace mediawhaler
+# Log traces for mediawhaler, but info for tokio in its `net` module
+MEDIAWHALER_LOG=mediawhaler=trace,tokio::net=info mediawhaler
+@end
+
+[`EnvFilter` syntax]{https://docs.rs/tracing-subscriber/latest/tracing_subscriber/struct.EnvFilter.html#directives}
+[tracing]{https://github.com/tokio-rs/tracing}

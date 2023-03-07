@@ -1,0 +1,16 @@
+* Media Whaler Configuration
+
+  MediaWhaler will try to find a file `config.yaml` in the following directories
+  - `/etc/mediawhaler/` (only on linux)
+  - `$XDG_CONFIG_HOME/mediawhaler` (defaults to `$HOME/.config/mediawhaler`)
+  - Path pointed by the variable `MEDIAWHALER_CONFIG`.
+    The variable can point to the path containing `config.yaml` or to a `config.yaml` file directly.
+  - In the current working directory
+  - Will override configuration options using environment variable
+    ex: MEDIAWHALER_NETWORK='\{https:\{port:3000, cert:'./cert.pem',key:'./key.pem'}}'
+    will use https and listen on port 3000 with cert file `./cert.pem` and key `./key.pem`
+
+** Default configuration
+   By default, mediawhaler will only listen for http connection on port `8080`.
+
+   A sample configuration file can be found at {https://github.com/mediawhaler/mediawhaler/config.yaml}

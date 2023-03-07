@@ -1,1 +1,6 @@
 /target
+
+*.log
+*.log.[0-9]*
+# cert files
+*.pem
