@@ -1,0 +1,14 @@
+network:
+  http:
+    port: 3000
+
+  https:
+    port: 3001
+    cert: assets/cert.crt
+    key: assets/cert.key
+
+logs:
+  # logs in file are written asyncronously
+  location: ./assets
+  term: StdErr
+
