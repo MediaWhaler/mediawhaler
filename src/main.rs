@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use axum::{routing::get, Router, Server};
 use std::net::SocketAddr;
-use tracing::{error, info};
+use tracing::{error, info, debug};
 
 use mediawhaler::config;
 
@@ -10,10 +10,13 @@ async fn main() -> Result<(), anyhow::Error> {
     let conf = config::Config::new().context("unable to get config")?;
     dbg!(&conf);
 
-    // Keep a reference on the non blocking file writter guard
+    // Keep a reference on the non blocking writters guards
     let _guard = mediawhaler::logs::setup(&conf.logs)?;
 
-    let app = Router::new().route("/", get(|| async { "Hello, World!" }));
+    let app = Router::new().route("/", get(|| async {
+        debug!("this is a debug message from an async block");
+        "Hello, World!"
+    }));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], conf.http.port));
 

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::{fs, path::PathBuf};
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, Registry};
+use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, Layer, Registry};
 
 use crate::config;
 
@@ -13,7 +13,7 @@ pub enum LogError {
     TracingError,
 }
 
-pub fn setup(config: &config::ConfigLog) -> Result<Option<WorkerGuard>> {
+pub fn setup(config: &config::ConfigLog) -> Result<Vec<Option<WorkerGuard>>> {
     let (file_layer, file_guard) = match &config.location {
         Some(path) => {
             if !path.exists() {
@@ -30,25 +30,35 @@ pub fn setup(config: &config::ConfigLog) -> Result<Option<WorkerGuard>> {
         None => (None, None),
     };
 
-    let stdout_layer = match &config.term {
+    let (output_layer, output_guard) = match &config.term {
         Some(config::ConfigTerm::StdOut) => {
-            Some(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
+            let (non_blocking, guard) = tracing_appender::non_blocking(std::io::stdout());
+            (
+                Some(
+                    tracing_subscriber::fmt::layer()
+                        .with_writer(non_blocking)
+                        .boxed(),
+                ),
+                Some(guard),
+            )
         }
-        _ => None,
+        Some(config::ConfigTerm::StdErr) => {
+            let (non_blocking, guard) = tracing_appender::non_blocking(std::io::stderr());
+            (
+                Some(
+                    tracing_subscriber::fmt::layer()
+                        .with_writer(non_blocking)
+                        .boxed(),
+                ),
+                Some(guard),
+            )
+        }
+        _ => (None, None),
     };
 
-    let stderr_layer = if let Some(config::ConfigTerm::StdErr) = &config.term {
-        Some(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
-    } else {
-        None
-    };
-
-    let subscriber = Registry::default()
-        .with(file_layer)
-        .with(stdout_layer)
-        .with(stderr_layer);
+    let subscriber = Registry::default().with(file_layer).with(output_layer);
 
     tracing::subscriber::set_global_default(subscriber).with_context(|| LogError::TracingError)?;
 
-    Ok(file_guard)
+    Ok(vec![file_guard, output_guard])
 }

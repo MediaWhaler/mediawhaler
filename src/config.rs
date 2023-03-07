@@ -9,8 +9,9 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
-/// The name of the config file to use
+/// Name of the environment variable to lookup for config path
 pub const CONFIG_VAR: &str = "MEDIAWHALER_CONFIG";
+/// The name of the config file to use
 const CONFIG_FILENAME: &str = "config.yaml";
 
 #[derive(Debug, thiserror::Error)]
@@ -123,5 +124,27 @@ impl Config {
         Self::figment()?
             .extract()
             .map_err(|e| ConfigError::ParsingError(format!("{e}")))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn config_http_port() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env(CONFIG_VAR, ".");
+            jail.create_file(
+                "config.yaml",
+                r#"
+                http:
+                    port: 3000
+            "#,
+            )?;
+
+            let config = Config::new().map_err(|e| format!("{e}"))?;
+            assert_eq!(config.http.port, 3000);
+            Ok(())
+        })
     }
 }
