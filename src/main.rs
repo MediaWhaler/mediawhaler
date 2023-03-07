@@ -1,32 +1,27 @@
-mod config;
-
 use anyhow::{anyhow, Context};
 use axum::{routing::get, Router, Server};
-use std::{fs::File, net::SocketAddr};
+use std::net::SocketAddr;
 use tracing::{error, info};
-use tracing_subscriber::{prelude::*, Registry};
+
+use mediawhaler::config;
 
 #[tokio::main]
-async fn main() {
-    let stderr_log = tracing_subscriber::fmt::layer()
-        .with_ansi(true)
-        .with_writer(std::io::stderr);
-    let file = File::create("./mediawhaler.log").expect("unable to create log file");
-    let file_log = tracing_subscriber::fmt::layer()
-        .with_ansi(false)
-        .with_writer(file);
-    let subscriber = Registry::default().with(stderr_log).with(file_log);
+async fn main() -> Result<(), anyhow::Error> {
+    let conf = config::Config::new().context("unable to get config")?;
+    dbg!(&conf);
 
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("Unable to setup global log subscriber");
+    // Keep a reference on the non blocking file writter guard
+    let _guard = mediawhaler::logs::setup(&conf.logs)?;
 
     let app = Router::new().route("/", get(|| async { "Hello, World!" }));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], conf.http.port));
 
     if let Err(error) = start(&addr, app).await {
         error!("server error: {:#}", error);
     }
+
+    Ok(())
 }
 
 async fn start(addr: &SocketAddr, app: Router) -> Result<(), anyhow::Error> {

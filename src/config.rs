@@ -3,27 +3,65 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::Parser;
 use figment::{
-    providers::{Serialized, Yaml, Format, Json},
-    value::{Dict, Map},
-    Error, Figment, Metadata, Profile, Provider,
+    providers::{Format, Serialized},
+    Figment,
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
-struct Config {
-    http: ConfigHttp,
-    https: Option<ConfigHttps>,
+/// The name of the config file to use
+pub const CONFIG_VAR: &str = "MEDIAWHALER_CONFIG";
+const CONFIG_FILENAME: &str = "config.yaml";
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("config not found: {0}")]
+    ConfigNotFoundError(String),
+    #[error("Parsing error: {0}")]
+    ParsingError(String),
 }
 
-#[derive(Serialize, Deserialize)]
-struct ConfigHttp {
-    port: u16,
+impl ConfigError {
+    fn config_file_does_not_exists(path: &Path) -> Self {
+        Self::ConfigNotFoundError(format!("file {} does not exists", path.display()))
+    }
 }
 
-#[derive(Serialize, Deserialize)]
-struct ConfigHttps {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Config {
+    pub http: ConfigHttp,
+    pub https: Option<ConfigHttps>,
+    pub logs: ConfigLog,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigLog {
+    pub location: Option<PathBuf>,
+    pub term: Option<ConfigTerm>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ConfigTerm {
+    StdOut,
+    StdErr,
+}
+
+impl Default for ConfigLog {
+    fn default() -> Self {
+        Self {
+            location: Default::default(),
+            term: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigHttp {
+    pub port: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigHttps {
     port: u16,
     cert: PathBuf,
     key: PathBuf,
@@ -34,6 +72,7 @@ impl Default for Config {
         Self {
             http: Default::default(),
             https: Default::default(),
+            logs: Default::default(),
         }
     }
 }
@@ -44,80 +83,45 @@ impl Default for ConfigHttp {
     }
 }
 
-// // Make `Config` a provider itself for composability.
-// impl Provider for Config {
-//     fn metadata(&self) -> Metadata {
-//         Metadata::named("Media Whaler")
-//     }
-
-//     fn data(&self) -> Result<Map<Profile, Dict>, Error>  {
-//         figment::providers::Serialized::defaults(Config::default()).data()
-//     }
-
-//     fn profile(&self) -> Option<Profile> {
-//         // Optionally, a profile that's selected by default.
-//         Some(Profile::Default)
-//     }
-// }
-
-// impl Config {
-//     // Allow the configuration to be extracted from any `Provider`.
-//     fn from<T: Provider>(provider: T) -> Result<Config, Error> {
-//         Figment::from(provider).extract()
-//     }
-
-//     // Provide a default provider, a `Figment`.
-//     fn figment() -> Figment {
-//         use figment::providers::Env;
-
-//         // In reality, whatever the library desires.
-//         Figment::from(Config::default()).merge(Env::prefixed("APP_"))
-//     }
-// }
-
-enum SupportedConfig {
-    JSON(PathBuf),
-    YAML(PathBuf),
-}
-
 impl Config {
-    fn path() -> Result<PathBuf, anyhow::Error> {
-        let yaml_config = "config.yaml";
-        let json_config = "config.json";
-        if let Ok(path) = env::var("MEDIAWHALER_CONFIG") {
-            let mut path = PathBuf::from(path);
-            path.push(&yaml_config);
-            if path.exists() {
-                return Ok(path);
+    fn find_config_in_path(path: &PathBuf) -> Result<PathBuf, ConfigError> {
+        let mut path = path.clone();
+        if path.is_file() && path.ends_with(CONFIG_FILENAME) {
+            Ok(path)
+        } else if path.exists() {
+            path.push(CONFIG_FILENAME);
+            match path.is_file() {
+                true => Ok(path),
+                false => Err(ConfigError::config_file_does_not_exists(&path)),
             }
+        } else {
+            Err(ConfigError::config_file_does_not_exists(&path))
         }
-        // else if let Ok(path) = directories::ProjectDirs::from("com", "mediawhaler", "MediaWhaler")
-        //     .ok_or("Failed to create project dir")
-        //     .and_then(|p| Ok(p.config_dir()))
-        // match {
-        //     Ok(path) if PathBuf::from(path).exists() => return Ok(PathBuf::from(path)),
-        //     _ => (),
-        // }
-        // let config_path = if let Ok(path) = env::var("MEDIAWHALER_CONFIG") {
-        //     PathBuf::from(path)
-        // } else if let Ok(path) = directories::ProjectDirs::from("com", "mediawhaler", "MediaWhaler")
-        //     .ok_or("Failed to create project dir")
-        //     .and_then(|p| Ok(p.config_dir()))
-        // {
-        //     PathBuf::from(path)
-        // } else {
-        //     todo!()
-        // };
-        unimplemented!()
     }
-    pub fn figment() -> Result<Figment, anyhow::Error> {
+
+    fn path() -> Result<PathBuf, ConfigError> {
+        // let json_config = "config.json";
+
+        if let Ok(path) = env::var(CONFIG_VAR) {
+            let path = PathBuf::from(path);
+            Self::find_config_in_path(&path)
+        } else {
+            Err(ConfigError::ConfigNotFoundError(format!(
+                "{CONFIG_VAR} is not defined and config file not found"
+            )))
+        }
+    }
+
+    fn figment() -> Result<Figment, ConfigError> {
         let config_path = Self::path()?;
-        // let merge_from = match config_path.extension() {
-        //     Some("yaml") => Yaml::file(config_path),
-        //     Some("json") => Json::file(config_path),
-        //     _ => return Err("config should be either a json or yaml"),
-        // };
-        // Figment::from(Serialized::defaults(Config::default())).merge(merge_from)
-        Ok(Figment::from(Serialized::defaults(Config::default())))
+        Ok(Figment::from(Serialized::defaults(Config::default()))
+            .merge(figment::providers::Yaml::file(config_path))
+            .merge(figment::providers::Env::prefixed("MEDIAWHALER_")))
+    }
+
+    pub fn new() -> Result<Config, ConfigError> {
+        Self::figment()?
+            .extract()
+            .map_err(|e| ConfigError::ParsingError(format!("{e}")))
     }
 }
