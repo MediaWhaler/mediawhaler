@@ -1,10 +1,11 @@
-http:
-  port: 3000
+network:
+  http:
+    port: 3000
 
-https:
-  port: 3001
-  cert: ./cert.perm
-  key: ./key.perm
+  https:
+    port: 3001
+    cert: assets/cert.crt
+    key: assets/cert.key
 
 logs:
   # logs in file are written asyncronously

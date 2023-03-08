@@ -30,9 +30,23 @@ impl ConfigError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
+    pub network: NetworkConfig,
+    pub logs: ConfigLog,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkConfig {
     pub http: ConfigHttp,
     pub https: Option<ConfigHttps>,
-    pub logs: ConfigLog,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            http: Default::default(),
+            https: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,23 +70,22 @@ impl Default for ConfigLog {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigHttp {
     pub port: u16,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigHttps {
-    port: u16,
-    cert: PathBuf,
-    key: PathBuf,
+    pub port: u16,
+    pub cert: PathBuf,
+    pub key: PathBuf,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            http: Default::default(),
-            https: Default::default(),
+            network: Default::default(),
             logs: Default::default(),
         }
     }
@@ -101,8 +114,6 @@ impl Config {
     }
 
     fn path() -> Result<PathBuf, ConfigError> {
-        // let json_config = "config.json";
-
         if let Ok(path) = env::var(CONFIG_VAR) {
             let path = PathBuf::from(path);
             Self::find_config_in_path(&path)
@@ -137,13 +148,14 @@ mod test {
             jail.create_file(
                 "config.yaml",
                 r#"
-                http:
-                    port: 3000
+                network:
+                    http:
+                        port: 3000
             "#,
             )?;
 
             let config = Config::new().map_err(|e| format!("{e}"))?;
-            assert_eq!(config.http.port, 3000);
+            assert_eq!(config.network.http.port, 3000);
             Ok(())
         })
     }

@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 axum = "0.6"
+axum-server = { version = "0.4.6", features = ["tls-rustls"] }
 clap = { version = "4", features = ["derive"] }
 directories = "4"
 figment = { version = "0.10", features = ["yaml", "env", "json", "test"] }
