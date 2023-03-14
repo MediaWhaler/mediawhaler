@@ -17,7 +17,7 @@ pub enum ServerError {
 }
 
 pub async fn start_http(addr: &SocketAddr, app: Router) -> Result<()> {
-    let server = Server::try_bind(&addr)
+    let server = Server::try_bind(addr)
         .with_context(|| ServerError::AddressBindingError(addr.to_string()))?
         .serve(app.into_make_service());
 

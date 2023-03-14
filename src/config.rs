@@ -28,28 +28,19 @@ impl ConfigError {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub network: NetworkConfig,
     pub logs: ConfigLog,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NetworkConfig {
     pub http: ConfigHttp,
     pub https: Option<ConfigHttps>,
 }
 
-impl Default for NetworkConfig {
-    fn default() -> Self {
-        Self {
-            http: Default::default(),
-            https: Default::default(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ConfigLog {
     pub location: Option<PathBuf>,
     pub term: Option<ConfigTerm>,
@@ -59,15 +50,6 @@ pub struct ConfigLog {
 pub enum ConfigTerm {
     StdOut,
     StdErr,
-}
-
-impl Default for ConfigLog {
-    fn default() -> Self {
-        Self {
-            location: Default::default(),
-            term: Default::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,15 +64,6 @@ pub struct ConfigHttps {
     pub key: PathBuf,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            network: Default::default(),
-            logs: Default::default(),
-        }
-    }
-}
-
 impl Default for ConfigHttp {
     fn default() -> Self {
         Self { port: 8080 }
@@ -98,8 +71,8 @@ impl Default for ConfigHttp {
 }
 
 impl Config {
-    fn find_config_in_path(path: &PathBuf) -> Result<PathBuf, ConfigError> {
-        let mut path = path.clone();
+    fn find_config_in_path(path: &Path) -> Result<PathBuf, ConfigError> {
+        let mut path = path.to_path_buf();
         if path.is_file() && path.ends_with(CONFIG_FILENAME) {
             Ok(path)
         } else if path.exists() {
