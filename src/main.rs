@@ -4,6 +4,11 @@ use axum_server::tls_rustls::RustlsConfig;
 use mediawhaler::{config, directories::Dirs};
 use std::net::SocketAddr;
 
+pub use self::api_error::{ApiError, Result as ApiResult};
+
+mod api;
+mod api_error;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let dirs = Dirs::new().ok_or(anyhow!("unable to create dirs"))?;
@@ -13,7 +18,10 @@ async fn main() -> Result<()> {
     // Keep a reference on the non blocking writters guards
     let _guard = mediawhaler::logs::setup(&conf.logs)?;
 
-    let app = Router::new().route("/", get(handler));
+    let app = Router::new()
+        .route("/", get(handler))
+        .merge(api::auth::routes());
+
 
     if let Err(error) = match &conf.network.https {
         Some(https) => {
