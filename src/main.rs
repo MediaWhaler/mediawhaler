@@ -8,7 +8,6 @@ use std::net::SocketAddr;
 async fn main() -> Result<()> {
     let dirs = Dirs::new().ok_or(anyhow!("unable to create dirs"))?;
     let conf = config::Config::new(&dirs).context("unable to get config")?;
-    dbg!(&conf);
 
     // Keep a reference on the non blocking writters guards
     let _guard = mediawhaler::logs::setup(&conf.logs)?;

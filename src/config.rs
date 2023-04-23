@@ -18,9 +18,10 @@ const CONFIG_FILENAME: &str = "config.yaml";
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    #[error("Parsing error: {0}")]
-    ParsingError(String),
+    #[error("Unable to parse config file")]
+    ParsingError(#[from] figment::Error),
 }
+type Result<T> = std::result::Result<T, ConfigError>;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -106,31 +107,21 @@ impl Config {
     fn figment(dirs: &Dirs) -> Figment {
         let mut figment = Figment::from(Serialized::defaults(Config::default()));
 
-        if let Some(provider) = Self::from_sys_config() {
-            figment = figment.merge(provider);
-        }
+        figment = vec![
+            Self::from_sys_config(),
+            Self::from_user_config(dirs),
+            Self::from_env(),
+            Self::from_current_dir(),
+        ]
+        .into_iter()
+        .flatten()
+        .fold(figment, |figment, provider| figment.merge(provider));
 
-        if let Some(provider) = Self::from_user_config(dirs) {
-            figment = figment.merge(provider);
-        }
-
-        if let Some(provider) = Self::from_env() {
-            figment = figment.merge(provider);
-        }
-
-        if let Some(provider) = Self::from_current_dir() {
-            figment = figment.merge(provider);
-        }
-
-        figment = figment.merge(figment::providers::Env::prefixed("MEDIAWHALER_"));
-
-        dbg!(figment)
+        figment.merge(figment::providers::Env::prefixed("MEDIAWHALER_"))
     }
 
-    pub fn new(dirs: &Dirs) -> Result<Config, ConfigError> {
-        Self::figment(dirs)
-            .extract()
-            .map_err(|e| ConfigError::ParsingError(e.to_string()))
+    pub fn new(dirs: &Dirs) -> Result<Config> {
+        Self::figment(dirs).extract().map_err(|e| e.into())
     }
 }
 
