@@ -20,8 +20,8 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/", get(handler))
-        .merge(api::auth::routes());
-
+        .merge(api::auth::routes())
+        .merge(api::create_user::routes());
 
     if let Err(error) = match &conf.network.https {
         Some(https) => {
